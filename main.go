@@ -24,7 +24,7 @@ func main() {
 
 		http.HandleFunc("/shortenurl", shorturl.HandleShortenURL)
 		http.HandleFunc("/deleteurl", shorturl.HandleDeleteURL)
-		//http.HandleFunc("/deleteurl", shorturl.HandleRedirectURL)
+		http.HandleFunc("/redirecturl", shorturl.HandleRedirectURL)
 
 		// Start the HTTP server. Listen for incoming requests
 		fmt.Println("URL shortening service has started.")
@@ -124,6 +124,44 @@ func (s *ShortURL) HandleDeleteURL(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error happened in JSON marshal. Err: %s", http.StatusBadRequest)
 	}
 	w.Write(jsonResp)
+}
+
+func (s *ShortURL) HandleRedirectURL(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Entered HandleRedirectURL")
+	fmt.Printf("%s\n", s.urls)
+	// check if HTTP request type is POST
+	var shortURL ReqBody
+	if r.Method != http.MethodPost {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+	// check if HTTP request has a body
+	reqBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "could not read request body: ", http.StatusBadRequest)
+		fmt.Printf("server: could not read request body: %s\n", err)
+	}
+	fmt.Printf("server: request body: %s\n", reqBody)
+	// Unmarshall the data
+	err = json.Unmarshal(reqBody, &shortURL)
+	if err != nil {
+		http.Error(w, "Error unmarshalling JSON", http.StatusInternalServerError)
+		fmt.Println("Error unmarshalling JSON: ", err)
+	}
+	// Fetch the long URL
+	if shortURL.URL == "" {
+		http.Error(w, "URL data is missing", http.StatusBadRequest)
+		return
+	}
+	fmt.Printf("shortURL %s\n", shortURL.URL)
+	longurl, found := s.urls[shortURL.URL]
+	if !found {
+		http.Error(w, "Short URL not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	// Redirect user to long URL
+	http.Redirect(w, r, longurl, http.StatusMovedPermanently)
 }
 
 // Private function to generate a base64 encoded string
