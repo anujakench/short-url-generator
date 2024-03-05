@@ -1,8 +1,8 @@
 Build and Deploy the application -
-On a Windows 10 OS, install Git bash, Go1.22.0
+On a Windows 10 OS, install Git bash, Go1.22.0.
 Open git bash terminal.
 Cd to the repository directory.
-Clone the github repository https://github.com/anujakench/short-url-generator.git on the machine(like i home directory)
+Clone the github repository https://github.com/anujakench/short-url-generator.git on the machine(like i home directory).
 Run  go build -o short-url main.go
 Run ./short-url
 Open another terminal.
