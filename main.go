@@ -61,7 +61,8 @@ func (s *ShortURL) HandleShortenURL(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Printf("longURL %s\n", longURL.URL)
 	// Create short URL
-	shortURL := encodeOriginalURL(longURL.URL)
+	encodedStr := encodeOriginalURL(longURL.URL)
+	shortURL := fmt.Sprintf("http://myshorturl.com/%s", encodedStr)
 	s.urls[shortURL] = longURL.URL
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
@@ -78,7 +79,7 @@ func (s *ShortURL) HandleDeleteURL(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Entered HandleDeleteURL")
 	fmt.Printf("%s\n", s.urls)
 	// check if HTTP request type is PUT
-	var longURL ReqBody
+	var shortURL ReqBody
 	if r.Method != http.MethodPut {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
@@ -91,39 +92,42 @@ func (s *ShortURL) HandleDeleteURL(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Printf("server: request body: %s\n", reqBody)
 	// Unmarshall the data
-	err = json.Unmarshal(reqBody, &longURL)
+	err = json.Unmarshal(reqBody, &shortURL)
 	if err != nil {
 		http.Error(w, "Error unmarshalling JSON", http.StatusInternalServerError)
 		fmt.Println("Error unmarshalling JSON: ", err)
 	}
 	// Fetch the long URL
-	if longURL.URL == "" {
+	if shortURL.URL == "" {
 		http.Error(w, "URL data is missing", http.StatusBadRequest)
 		return
 	}
-	fmt.Printf("longURL %s\n", longURL.URL)
-	w.Header().Set("Content-Type", "application/json")
-	resp := make(map[string]string)
-	for shorturl, longurl := range s.urls {
-		if longurl == longURL.URL {
-			delete(s.urls, shorturl)
-			w.WriteHeader(http.StatusOK)
-			resp["message"] = "Status OK"
-			jsonResp, err := json.Marshal(resp)
-			if err != nil {
-				http.Error(w, "Error happened in JSON marshal. Err: %s", http.StatusInternalServerError)
-			}
-			w.Write(jsonResp)
-			return
+	fmt.Printf("shortURL %s\n", shortURL.URL)
+	_, ok := s.urls[shortURL.URL]
+	if ok {
+		delete(s.urls, shortURL.URL)
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+		resp := make(map[string]string)
+		resp["message"] = "Status OK"
+		jsonResp, err := json.Marshal(resp)
+		if err != nil {
+			http.Error(w, "Error happened in JSON marshal. Err: %s", http.StatusInternalServerError)
 		}
+		w.Write(jsonResp)
+		return
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		resp := make(map[string]string)
+		resp["message"] = "Status Bad Request"
+		jsonResp, err := json.Marshal(resp)
+		if err != nil {
+			http.Error(w, "Error happened in JSON marshal. Err: %s", http.StatusBadRequest)
+		}
+		w.Write(jsonResp)
+		return
 	}
-	w.WriteHeader(http.StatusBadRequest)
-	resp["message"] = "Status Bad Request"
-	jsonResp, err := json.Marshal(resp)
-	if err != nil {
-		http.Error(w, "Error happened in JSON marshal. Err: %s", http.StatusBadRequest)
-	}
-	w.Write(jsonResp)
 }
 
 func (s *ShortURL) HandleRedirectURL(w http.ResponseWriter, r *http.Request) {
