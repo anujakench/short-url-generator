@@ -8,20 +8,20 @@
 https://etcd.io/docs/v3.4/install/
 ```
 under "Build From Source" to install and build Etcd.<br />
-6. Open another git bash terminal.<br />
+6. Open git bash terminal.<br />
 7. Go to etcd/bin directory inside short-url-generator.<br />
 8. Run following command to start Etcd server<br />
 ```
 etcd
 ```
-9. Open another git bash terminal and run the following command.<br />
+9. Open git bash terminal and run the following command.<br />
 ```
 go build -o short-url main.go
 ./short-url
 ```
 
 # Manual steps to test -
-1. Open another git bash terminal and run the following command to create short URL.<br />
+1. Open git bash terminal and run the following command to create short URL.<br />
 ```
 curl -H 'Content-Type: application/json' -d '{ "url": "https://gmail.com"}' -X POST http://localhost:8080/shortenurl
 ```
@@ -37,3 +37,18 @@ curl -H 'Content-Type: application/json' -d '{ "url": "http://myshorturl.com/aHR
 ```
 curl -H 'Content-Type: application/json' -d '{ "url": "http://myshorturl.com/aHR0cHM6Ly9nb29nbGUuY29t", "accesstime": "1 hours"}' -X GET http://localhost:8080//urlaccessed
 ```
+# Test Data Persistence -
+1. Open git bash terminal.
+2. cd to short-url-generator/etcd/bin.
+3. Run etcdctl to access keys
+   ```
+   Anuja Kench@ANUJA-IBM MINGW64 ~/Desktop/short-url-generator/etcd/bin ((v3.4.28))
+   $ ./etcdctl get http://myshorturl.com/aHR0cHM6Ly9nb29nbGUuY29t_url
+   http://myshorturl.com/aHR0cHM6Ly9nb29nbGUuY29t_url
+   http://myshorturl.com/aHR0cHM6Ly9nb29nbGUuY29t
+
+   Anuja Kench@ANUJA-IBM MINGW64 ~/Desktop/short-url-generator/etcd/bin ((v3.4.28))
+   $ ./etcdctl get http://myshorturl.com/aHR0cHM6Ly9nb29nbGUuY29t_longurl
+   http://myshorturl.com/aHR0cHM6Ly9nb29nbGUuY29t_longurl
+   https://google.com
+  ```
