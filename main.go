@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	base64 "encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type ShortURL struct {
@@ -29,7 +32,13 @@ type AccessedReqBody struct {
 	AccessTime string
 }
 
+// Start time of application
 var EpochTime time.Time
+
+// Etcd client handler
+var cli *clientv3.Client
+
+var ctx context.Context
 
 func main() {
 	// Calculate the epoch time
@@ -44,6 +53,18 @@ func main() {
 		http.HandleFunc("/redirecturl", shorturl.HandleRedirectURL)
 		http.HandleFunc("/urlaccessed", shorturl.HandleAccessedTimeURL)
 
+		// Start the Etcd client
+		var err error
+		cli, err = clientv3.New(clientv3.Config{
+			Endpoints:   []string{"localhost:2379", "localhost:2379", "localhost:2379"},
+			DialTimeout: 5 * time.Hour,
+		})
+		if err != nil {
+			fmt.Printf("Failed to start Etcd Client: %+v\n", err)
+			return
+		}
+		//defer cli.Close()
+		ctx, _ = context.WithTimeout(context.Background(), time.Duration(time.Hour*80))
 		// Start the HTTP server. Listen for incoming requests
 		fmt.Println("URL shortening service has started.")
 		http.ListenAndServe(":8080", nil)
@@ -93,7 +114,6 @@ func (s *ShortURLS) HandleShortenURL(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("hours %d\n", int64(difference.Hours()))
 	str.hours[int64(difference.Hours())] += 1
 	// Store the short URL in hash map
-
 	s.urls[str] = longURL.URL
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
@@ -105,6 +125,11 @@ func (s *ShortURLS) HandleShortenURL(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Write(jsonResp)
 	fmt.Println("URL's")
+	// Persist the data in Etcd
+	_, _ = cli.Put(ctx, str.url+"_url", str.url)
+	val := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(str.hours)), " "), "[]")
+	_, _ = cli.Put(ctx, str.url+"_access_time", val)
+	_, _ = cli.Put(ctx, str.url+"_longurl", longURL.URL)
 	fmt.Printf("%+v\n", s.urls)
 }
 
@@ -203,6 +228,10 @@ func (s *ShortURLS) HandleRedirectURL(w http.ResponseWriter, r *http.Request) {
 			short_copy.hours[int64(difference.Hours())] += 1
 			fmt.Printf("hours after %d\n", short_copy.hours[int64(difference.Hours())])
 			s.urls[short_copy] = long
+			// Delete the data in Etcd
+			_, _ = cli.Delete(ctx, short.url+"_url")
+			_, _ = cli.Delete(ctx, short.url+"_access_time")
+			_, _ = cli.Delete(ctx, short.url+"_longurl")
 			// Redirect user to long URL
 			w.Header().Set("Content-Type", "application/json")
 			http.Redirect(w, r, long, http.StatusMovedPermanently)
